@@ -12,33 +12,16 @@ library(tidyverse)
 
 df <- read.csv("../Data/Loan_approval_data_2025.csv")
 head(df)
+str(df)
 view(df)
 
 ```
 ### Step 0.1: Pre-processing
 ```{r}
-library(kableExtra)
-
 check_missing_values <- is.na.data.frame(df)
 total_missing_values <- sum(check_missing_values) 
 
 print(total_missing_values) #since there are no missing values, we can move on!
-
-
-#summary table
-glimpse(df)
-
-#create object with only relevant variables
-mainvars_df <- select(df, c(occupation_status, years_employed, current_debt,
-                      loan_amount))
-
-glimpse(mainvars_df)
-
-table <- df %>% 
-  kable() %>% 
-  
-
-
 ```
 ### Step 0.2: Visualization
 
@@ -47,7 +30,9 @@ table <- df %>%
 
 par(mfrow = c(2, 5))
 
-#marisca task: convert these into ggplot
+#Sjors task: convert these into ggplot 
+
+
 
 #age
 hist(df$age,
