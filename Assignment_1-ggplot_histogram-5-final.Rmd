@@ -1,0 +1,152 @@
+---
+title: "Fundamentals of R: Assignment 1"
+author: "Marisca Westerhof (0706116), Matias Edelstein (1296337), Sjors Wilkes (6377130)"
+date: "8/12/2025"
+output: html_document
+---
+## Part 0: Coming up with the RQ
+### Step 0.0: Preliminary Setting Up
+Our dataset was retrieved from https://www.kaggle.com/datasets/parthpatel2130/realistic-loan-approval-dataset-us-and-canada?resource=download
+
+
+```{r}
+library(tidyverse)
+
+df <- read.csv("../Data/Loan_approval_data_2025.csv")
+head(df)
+str(df)
+view(df)
+
+```
+### Step 0.1: Pre-processing
+```{r}
+check_missing_values <- is.na.data.frame(df)
+total_missing_values <- sum(check_missing_values) 
+
+print(total_missing_values) #since there are no missing values, we can move on!
+```
+### Step 0.2: Visualization
+
+##### Histograms are used for numerical data, bar charts for categorical
+```{r}
+
+par(mfrow = c(2, 5))
+
+
+#age
+
+ggplot(df) + geom_histogram(aes(x = age), binwidth = 1) 
+
+#years_employed
+
+ggplot(df) + geom_histogram(aes(x = years_employed), binwidth = 1)
+
+#annual_income
+
+ggplot(df) + geom_histogram(aes(x = annual_income), bins = 50)
+
+
+#credit_score
+
+ggplot(df) + geom_histogram(aes(x = credit_score), bins = 50)
+
+#credit_history_years
+
+ggplot(df) + geom_histogram(aes(x = credit_history_years), binwidth = 1)
+
+#savings_assets 
+
+ggplot(df) +
+  geom_histogram(aes(x = log10(savings_assets)), bins = 50) +
+  scale_x_continuous(
+    breaks = log10(c(10, 100, 1000, 10000, 100000)),
+    labels = c(10, 100, 1000, 10000, 100000)
+  )
+
+#current_debt - 
+
+ggplot(df) + geom_histogram(aes(x = current_debt), bins = 50)
+
+#defaults_on_file 
+
+ggplot(df) +
+  geom_bar(aes(x = factor(defaults_on_file,
+                          levels = c(0,1),
+                          labels = c("no", "yes"))))
+#delinquencies_last_2yrs 
+
+ggplot(df) + geom_histogram(aes(x = delinquencies_last_2yrs), binwidth = 0.5)
+
+#derogatory_marks
+
+ggplot(df) + geom_histogram(aes(x = derogatory_marks), binwidth = 0.5)
+
+#loan_amount 
+
+ggplot(df) + geom_histogram(aes(x = loan_amount), bins=50)
+
+#interest_rate
+
+ggplot(df) + geom_histogram(aes(x = interest_rate), bins = 50)
+
+#debt_to_income_ratio
+
+ggplot(df) + geom_histogram(aes(x = debt_to_income_ratio), binwidth = 0.01)
+
+
+#loan_to_income_ratio 
+
+ggplot(df) + geom_histogram(aes(x = loan_to_income_ratio), binwidth = 0.01)
+
+#payment_to_income_ratio --
+
+ggplot(df) + geom_histogram(aes(x = payment_to_income_ratio), binwidth = 0.01)
+
+#loan_status 
+
+ggplot(df) +
+  geom_bar(aes(x = factor(loan_status,
+                          levels = c(0,1),
+                          labels = c("no", "yes"))))
+
+
+
+```
+
+## Part 1: Confirming Our Hypotheses
+### Research Question: To what extent do years employed, current debt, and occupation status influence loan approval?
+
+## Part 2: Checking Assumptions of the Regression Model
+### Assumption 1: No Multicollinearity
+```{r}
+library(corrplot)
+library(ggplot2)
+library(reshape2)
+
+df_numerical_data_only <- df %>%
+  select(-customer_id,-occupation_status,-product_type,-loan_intent,)
+view(df_numerical_data_only)
+
+correlation_matrix <- cor(df_numerical_data_only)
+
+# plotting the correlation plot, inspiration from: https://www.datacamp.com/tutorial/variance-inflation-factor
+
+melted_corr_matrix <- melt(correlation_matrix)
+
+ggplot(data = melted_corr_matrix, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), space = "Lab", 
+                       name="Correlation") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  labs(x = "", y = "") + 
+  geom_text(aes(Var1, Var2, label = round(value, 2)), color = "black", size = 2) +
+  theme(axis.text=element_text(size=10))
+
+
+```
+
+## Part 3: F-Test and P-Value
+## Part 4: Should we reject the null hypothesis?
+## Part 5: Overall Conclusion
