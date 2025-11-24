@@ -1,0 +1,224 @@
+---
+title: "Fundamentals of R: Assignment 1"
+author: "Marisca Westerhof (0706116), Matias Edelstein (1296337), Sjors Wilkes (6377130)"
+date: "8/12/2025"
+output: html_document
+---
+## Part 0: Coming up with the RQ
+### Step 0.0: Preliminary Setting Up
+Our dataset was retrieved from https://www.kaggle.com/datasets/parthpatel2130/realistic-loan-approval-dataset-us-and-canada?resource=download
+```{r}
+library(tidyverse)
+
+df <- read.csv("../Data/Loan_approval_data_2025.csv")
+head(df)
+view(df)
+
+```
+### Step 0.1: Pre-processing
+```{r}
+library(kableExtra)
+library(dplyr)
+
+check_missing_values <- is.na.data.frame(df)
+total_missing_values <- sum(check_missing_values) 
+
+print(total_missing_values) #since there are no missing values, we can move on!
+
+
+#summary table
+glimpse(df)
+
+
+
+#occupation status into factor var
+df$occupation_status <- df$occupation_status %>% factor()
+levels(df$occupation_status)
+  
+#create object with only relevant variables
+mainvars_df <- select(df, c(years_employed, current_debt,
+                      loan_amount, delinquencies_last_2yrs))
+
+glimpse(mainvars_df)
+
+
+#summary statistics
+summary_stats <- tibble(
+  Variable = c("years_employed", "current_debt", "loan_amount", "delinquencies_last_2yrs"),
+  Min = c(min(mainvars_df$years_employed), 
+          min(mainvars_df$current_debt),
+          min(mainvars_df$loan_amount),
+          min(mainvars_df$delinquencies_last_2yrs)),
+  Mean = c(mean(mainvars_df$years_employed), 
+          mean(mainvars_df$current_debt),
+          mean(mainvars_df$loan_amount),
+           mean(mainvars_df$delinquencies_last_2yrs)), 
+  Max = c(max(mainvars_df$years_employed), 
+          max(mainvars_df$current_debt),
+          max(mainvars_df$loan_amount),
+          max(mainvars_df$delinquencies_last_2yrs)), 
+  IQR = c(IQR(mainvars_df$years_employed), 
+          IQR(mainvars_df$current_debt),
+          IQR(mainvars_df$loan_amount),
+          IQR(mainvars_df$delinquencies_last_2yrs)),
+  Description = c('The number of years employed by applicant',
+                  'The amount of debt by applicant ($)',
+                  'The amount on loan by applicant ($)', 
+                  'Loan Delinquencies in Last 2 Years'))
+
+#summary statistics table
+summary_stats_rounded <- summary_stats %>% 
+  mutate(across(c(Mean, Max, IQR), ~round(.,2)))
+
+kable(summary_stats_rounded, align = c('l','c','c','c','c','r')) %>% 
+  kable_styling(bootstrap_options = 'striped','hover')
+  
+
+
+```
+### Step 0.2: Visualization
+
+##### Histograms are used for numerical data, bar charts for categorical
+```{r}
+
+par(mfrow = c(2, 5))
+
+#marisca task: convert these into ggplot
+
+#age
+hist(df$age,
+      main = "Age Distribution\nof Participants",
+     xlab = "Age (years)",
+     ylab = "Number of People")
+
+#years_employed
+hist(df$age,
+      main = "Number of Years\nEmployed\nDistribution of\n Participants",
+     xlab = "Number of Years Employed (years)",
+     ylab = "Number of People")
+
+#annual_income
+hist(df$annual_income,
+      main = "Annual Income\nDistribution of\nParticipants",
+     xlab = "Annual Income",
+     ylab = "Number of People")
+
+#credit_score
+hist(df$credit_score,
+      main = "Credit Score\nDistribution of\nParticipants",
+     xlab = "Credit Score",
+     ylab = "Number of People")
+
+#credit_history_years
+hist(df$credit_history_years,
+      main = "Credit History Years\nDistribution of\nParticipants",
+     xlab = "Credit History Years",
+     ylab = "Number of People")
+
+#savings_assets
+hist(df$savings_assets,
+      main = "Savings Assests\nDistribution of\nParticipants",
+     xlab = "Savings Assests",
+     ylab = "Number of People")
+
+#current_debt
+hist(df$current_debt,
+      main = "Current Debt\nDistribution of\nParticipants",
+     xlab = "Savings Assests",
+     ylab = "Number of People")
+
+#defaults_on_file
+hist(df$defaults_on_file,
+      main = "Defaults on File\nDistribution of\nParticipants",
+     xlab = "Defaults on File",
+     ylab = "Number of People")
+
+#delinquencies_last_2yrs
+hist(df$delinquencies_last_2yrs,
+      main = "Delinquencies \nLast Two Years\nDistribution of\nParticipants",
+     xlab = "Delinquencies",
+     ylab = "Number of People")
+
+#derogatory_marks
+hist(df$derogatory_marks,
+      main = "Derogatory Marks\nDistribution of\nParticipants",
+     xlab = "Derogatory Marks",
+     ylab = "Number of People")
+
+#loan_amount
+hist(df$loan_amount,
+      main = "Loan Amount\nDistribution of\nParticipants",
+     xlab = "Loan Amount",
+     ylab = "Number of People")
+
+#interest_rate
+hist(df$interest_rate,
+      main = "Interest Rate\nDistribution of\nParticipants",
+     xlab = "Interest Rate",
+     ylab = "Number of People")
+
+#debt_to_income_ratio
+hist(df$debt_to_income_ratio,
+      main = "Debt to Income Ratio\nDistribution of\nParticipants",
+     xlab = "Debt to Income Ratio",
+     ylab = "Number of People")
+
+#loan_to_income_ratio
+hist(df$loan_to_income_ratio,
+      main = "Loan to Income Ratio\nDistribution of\nParticipants",
+     xlab = "Loan to Income Ratio",
+     ylab = "Number of People")
+
+#payment_to_income_ratio
+hist(df$payment_to_income_ratio,
+      main = "Payment to Income Ratio\nDistribution of\nParticipants",
+     xlab = "Payment to Income Ratio",
+     ylab = "Number of People")
+
+#loan_status
+hist(df$loan_status,
+      main = "Loan Status\nDistribution of\nParticipants",
+     xlab = "Loan Status",
+     ylab = "Number of People")
+
+
+```
+
+## Part 1: Confirming Our Hypotheses
+### Research Question: To what extent do years employed, current debt, and occupation status influence loan approval?
+
+## Part 2: Checking Assumptions of the Regression Model
+### Assumption 1: No Multicollinearity
+```{r}
+
+library(corrplot)
+library(ggplot2)
+library(reshape2)
+
+df_numerical_data_only <- df %>%
+  select(-customer_id,-occupation_status,-product_type,-loan_intent,)
+view(df_numerical_data_only)
+
+correlation_matrix <- cor(df_numerical_data_only)
+
+# plotting the correlation plot, inspiration from: https://www.datacamp.com/tutorial/variance-inflation-factor
+
+melted_corr_matrix <- melt(correlation_matrix)
+
+ggplot(data = melted_corr_matrix, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), space = "Lab", 
+                       name="Correlation") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  labs(x = "", y = "") + 
+  geom_text(aes(Var1, Var2, label = round(value, 2)), color = "black", size = 2) +
+  theme(axis.text=element_text(size=10))
+
+
+```
+
+## Part 3: F-Test and P-Value
+## Part 4: Should we reject the null hypothesis?
+## Part 5: Overall Conclusion
