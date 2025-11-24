@@ -18,6 +18,7 @@ view(df)
 ### Step 0.1: Pre-processing
 ```{r}
 library(kableExtra)
+library(dplyr)
 
 check_missing_values <- is.na.data.frame(df)
 total_missing_values <- sum(check_missing_values) 
@@ -28,14 +29,49 @@ print(total_missing_values) #since there are no missing values, we can move on!
 #summary table
 glimpse(df)
 
+
+
+#occupation status into factor var
+df$occupation_status <- df$occupation_status %>% factor()
+levels(df$occupation_status)
+  
 #create object with only relevant variables
-mainvars_df <- select(df, c(occupation_status, years_employed, current_debt,
-                      loan_amount))
+mainvars_df <- select(df, c(years_employed, current_debt,
+                      loan_amount, delinquencies_last_2yrs))
 
 glimpse(mainvars_df)
 
-table <- df %>% 
-  kable() %>% 
+
+#summary statistics
+summary_stats <- tibble(
+  Variable = c("years_employed", "current_debt", "loan_amount", "delinquencies_last_2yrs"),
+  Min = c(min(mainvars_df$years_employed), 
+          min(mainvars_df$current_debt),
+          min(mainvars_df$loan_amount),
+          min(mainvars_df$delinquencies_last_2yrs)),
+  Mean = c(mean(mainvars_df$years_employed), 
+          mean(mainvars_df$current_debt),
+          mean(mainvars_df$loan_amount),
+           mean(mainvars_df$delinquencies_last_2yrs)), 
+  Max = c(max(mainvars_df$years_employed), 
+          max(mainvars_df$current_debt),
+          max(mainvars_df$loan_amount),
+          max(mainvars_df$delinquencies_last_2yrs)), 
+  IQR = c(IQR(mainvars_df$years_employed), 
+          IQR(mainvars_df$current_debt),
+          IQR(mainvars_df$loan_amount),
+          IQR(mainvars_df$delinquencies_last_2yrs)),
+  Description = c('The number of years employed by applicant',
+                  'The amount of debt by applicant ($)',
+                  'The amount on loan by applicant ($)', 
+                  'Loan Delinquencies in Last 2 Years'))
+
+#summary statistics table
+summary_stats_rounded <- summary_stats %>% 
+  mutate(across(c(Mean, Max, IQR), ~round(.,2)))
+
+kable(summary_stats_rounded, align = c('l','c','c','c','c','r')) %>% 
+  kable_styling(bootstrap_options = 'striped','hover')
   
 
 
