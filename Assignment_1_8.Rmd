@@ -1,0 +1,374 @@
+---
+title: "Fundamentals of R: Assignment 1"
+author: "Marisca Westerhof (0706116), Matias Edelstein (1296337), Sjors Wilkes (6377130)"
+date: "8/12/2025"
+output: html_document
+---
+## Introduction
+
+As a cornerstone of our financial systems, the ability to receive a loan is essential to the livelihood of many families, entrepreneurial ventures, and big business alike. However, to minimize the chance of default creditors establish stringent criteria for loan approval; each case is evaluated depending on multiple factors. Since most individuals in their lives are likely to loan money, we find this topic to be highly relevant. Hence, our research aims to answer the question: to what extent do years employed, current debt, delinquencies last two years, loan intent, and occupation status influence loan amount in the US and Canada?
+
+## Part 0: Coming up with the RQ
+### Step 0.0: Preliminary Setting Up
+Our dataset was retrieved from https://www.kaggle.com/datasets/parthpatel2130/realistic-loan-approval-dataset-us-and-canada?resource=download
+```{r message=FALSE, warning=FALSE, error=TRUE}
+library(tidyverse)
+
+df <- read.csv("../Data/Loan_approval_data_2025.csv")
+head(df)
+view(df)
+
+```
+### Step 0.1: Pre-processing
+```{r}
+check_missing_values <- is.na.data.frame(df)
+total_missing_values <- sum(check_missing_values) 
+
+print(total_missing_values) #since there are no missing values, we can move on!
+```
+### Step 0.2: Variable Visualization
+
+##### Histograms are used for numerical data, bar charts for categorical
+```{r}
+library(gridExtra)
+par(mfrow = c(2, 5))
+
+
+###numerical plots ###
+
+# general theme histogram 
+theme_histo <- theme_minimal(base_size = 9) + 
+  theme(panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(),
+axis.title.x = element_text(size = 7),
+axis.title.y = element_blank(),
+axis.text.x = element_text(size = 7),
+axis.text.y = element_text(size = 7),
+plot.title = element_text(size = 9, face = "bold", hjust = 0.5),
+plot.margin = margin(2, 2, 2, 2, unit = "pt")
+)
+
+#age
+p1 <- ggplot(df) + geom_histogram(aes(x = age), binwidth = 1) +theme_histo 
+
+# filter out cases younger than 18
+# df <- df %>% filter(age > 17)
+
+#years_employed
+
+p2 <- ggplot(df) + geom_histogram(aes(x = years_employed), binwidth = 1)+theme_histo 
+
+#annual_income
+
+p3 <- ggplot(df) + geom_histogram(aes(x = annual_income), bins = 50)+ 
+  theme_histo 
+
+#credit_score
+
+p4 <- ggplot(df) + geom_histogram(aes(x = credit_score), bins = 50)+
+  theme_histo 
+#credit_history_years
+
+p5 <- ggplot(df) + geom_histogram(aes(x = credit_history_years), binwidth = 1)+
+  theme_histo 
+
+#savings_assets: in order to show the distribution clearly, we've transformed the x-axis to a logarithmic scale
+
+p6 <- ggplot(df) +
+  geom_histogram(aes(x = log10(savings_assets)), bins = 50) +
+  scale_x_continuous(
+    breaks = log10(c(10, 100, 1000, 10000, 100000)),
+    labels = c(10, 100, 1000, 10000, 100000)
+  ) +
+  theme_histo 
+
+#current_debt - 
+
+p7 <- ggplot(df) + geom_histogram(aes(x = current_debt), bins = 50) +
+  theme_histo 
+
+
+#delinquencies_last_2yrs 
+
+p8 <- ggplot(df) + geom_histogram(aes(x = delinquencies_last_2yrs), binwidth = 0.5) +theme_histo 
+
+#derogatory_marks
+
+p9 <- ggplot(df) + geom_histogram(aes(x = derogatory_marks), binwidth = 0.5) +theme_histo 
+
+#loan_amount 
+
+p10 <- ggplot(df) + geom_histogram(aes(x = loan_amount), bins=50) +theme_histo 
+
+#interest_rate
+
+p11 <- ggplot(df) + geom_histogram(aes(x = interest_rate), bins = 50) +theme_histo 
+
+#debt_to_income_ratio
+
+p12 <- ggplot(df) + geom_histogram(aes(x = debt_to_income_ratio), binwidth = 0.01) +theme_histo 
+
+
+#loan_to_income_ratio 
+
+p13 <- ggplot(df) + geom_histogram(aes(x = loan_to_income_ratio), binwidth = 0.01) +theme_histo 
+
+#payment_to_income_ratio --
+
+p14 <- ggplot(df) + geom_histogram(aes(x = payment_to_income_ratio), binwidth = 0.01) +theme_histo 
+
+#arrangement numerical plots
+
+grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14, ncol = 4)
+
+```
+
+```{r}
+###categorical plots###
+  
+
+#general theme barplot
+theme_barplot <-  theme_bw(base_size = 9) + 
+  theme(panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(),
+axis.title.x = element_text(size = 7),
+axis.title.y = element_blank(),
+axis.text.x = element_text(size = 7, angle = 45, hjust = 1),
+axis.text.y = element_text(size = 7),
+plot.title = element_text(size = 9, face = "bold", hjust = 0.5),
+plot.margin = margin(2, 2, 2, 2, unit = "pt"),
+aspect.ratio = 0.8
+)
+
+
+
+#occupation status
+
+df$occupation_status <- factor(df$occupation_status)
+
+b1 <- ggplot(df, aes(x = occupation_status)) +
+  geom_bar() + 
+  theme_barplot
+
+
+#product type
+df$product_type <- factor(df$product_type)
+
+b2 <- ggplot(df, aes(x = product_type)) +
+  geom_bar() +
+  theme_barplot
+
+
+#loan intent: change the categorical variable into a factor 
+df$loan_intent <- factor(df$loan_intent)
+
+b3 <- ggplot(df, aes(x = loan_intent)) +
+  geom_bar() + 
+  theme_barplot
+
+#defaults_on_file 
+
+b4 <- ggplot(df) +
+  geom_bar(aes(x = factor(defaults_on_file,
+                          levels = c(0,1),
+                          labels = c("no", "yes")))) + 
+  labs(x = "defaults_on_file") + 
+  theme_barplot
+
+#loan_status 
+
+b5 <- ggplot(df) +
+  geom_bar(aes(x = factor(loan_status,
+                          levels = c(0,1),
+                          labels = c("no", "yes")))) + labs(x = "loan status") + labs(x = "loan_status") +
+  theme_barplot
+
+
+grid.arrange(b1,b2,b3,b4, b5, ncol = 3)
+```
+
+### Step 0.3: Making a Pearson Correlation Matrix
+```{r}
+
+library(corrplot)
+library(ggplot2)
+library(reshape2)
+
+df_numerical_data_only <- df %>%
+  select(-customer_id,-occupation_status,-product_type,-loan_intent,)
+view(df_numerical_data_only)
+
+correlation_matrix_numerical <- cor(df_numerical_data_only)
+
+# plotting the correlation plot, inspiration from: https://www.datacamp.com/tutorial/variance-inflation-factor 
+
+melted_corr_matrix_numerical <- melt(correlation_matrix_numerical)
+
+ggplot(data = melted_corr_matrix_numerical, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), space = "Lab", 
+                       name="Correlation") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  labs(x = "", y = "") + 
+  geom_text(aes(Var1, Var2, label = round(value, 2)), color = "black", size = 2) +
+  theme(axis.text=element_text(size=10))
+
+```
+
+## Part 1: Confirming Our Hypotheses
+### Research Question: To what extent do years employed, current debt, delinquencies last two years, loan intent, and occupation status influence loan amount?
+
+### Setting the Level of Significant, Null Hypothesis, and Alternative Hypothesis
+
+```{r}
+null_hypothesis <- "the chosen predictors have no effect on loan amount"
+alternative_hypothesis <- "the chosen predictors have an effect on loan amount"
+
+significance_level <- 0.05
+```
+The implication of this is that if a predictor showcases a P-Value greater than 0.05, it will not be statistically significant. 
+
+<!-- ### Step 1.1: Further cleaning the data set to prepare of regression -->
+<!-- ```{r} -->
+<!-- # further cleaning of the data set to only include relevant predictors for our research question -->
+
+<!-- df_rq <- df %>% -->
+<!--   select(loan_amount) -->
+<!-- view(df_rq) -->
+<!-- ``` -->
+
+## Part 2: Testing Various Models
+In order to determine which variables would have the highest potential as predictors in the multiple linear regression, we looked at the correlation matrix that we made in the previous section. This table showed us which variables had high correlation with loan amount, which is our target outcome variable. 
+
+### Step 2.1 Making linear regression models, using with high levels of correlation with loan amount as our starting point
+
+#### Model 1: Payment to Income Ratio
+
+We started out with testing payment_to_income_ratio as a predictor of loan amount, as it has a correlation of xx. 
+```{r}
+
+# 1.1: building model1
+model1 <- lm(loan_amount ~ payment_to_income_ratio, data = df)
+summary(model1)
+
+# 1.2: making predictor model
+library(modelr)
+
+model1_pred <- df %>%
+  add_predictions(model1) %>% 
+  rename(predicted_loan_amount = pred)
+view(model1_pred)
+
+# 1.3: plotting the regression
+library(plotly)
+
+model1_plot <- model1_pred %>%
+  ggplot(aes(loan_amount, predicted_loan_amount)) +
+  geom_point() +
+  geom_segment(aes(xend = loan_amount, yend = loan_amount), col = "pink") +
+  geom_smooth(method = "lm", col = "purple")
+ggplotly(model1_plot)
+```
+Model 1 reflection: Model 1 demonstrates that Payment to Income Ratio is a highly significant predictor, with a coefficient of 111378.4. The r-squared value = is 0.4385, which signals a large effect. Still, as Model 1 is a simple linear regression, we can get more accurate results by using a multiple linear regression. 
+
+#### Model 2: Payment to Income Ratio and Annual Income
+
+Model 2 builds on the first model, this time adding payment_to_income_ratio as the second predictor of loan amount. The reason we opted for this as our second predictor is because it has a correlation of 0.51 with loan amount. 
+```{r}
+# 1.1 building model 2
+model2 <- lm(loan_amount ~ payment_to_income_ratio + annual_income, data = df)
+summary(model2)
+```
+Model 2 reflection: What we can see in model 2 is that is significant. r-squared value = xx, which is substantially higher. this good news --. however, we should 
+
+model 3: added loan_to_income_ratio, bc high correlation = 0.61. 
+```{r}
+
+# 3: adding
+
+model3 <- lm(loan_amount ~ payment_to_income_ratio + annual_income + loan_to_income_ratio, data = df)
+summary(model3)
+```
+model 3 reflection: however, it did not add anything to the r^2 value, which was surprising. however, loan_to_income_ratio probably had high correlation with payment_to_income_ratio, which is why there was probably such little result. additionally, this was below the level of significance we had set 0.05, so we opted to drop this variable in further iterations of the regression.
+
+```{r}
+# slkdfj
+
+model4 <- lm(loan_amount ~ payment_to_income_ratio + annual_income + product_type + years_employed + age + loan_status + defaults_on_file + loan_intent + credit_score, data = df)
+summary(model4)
+
+model5 <- lm(loan_amount ~ payment_to_income_ratio + annual_income + product_type + age + loan_status, data = df)
+summary(model5)
+
+```
+
+```{r}
+
+# 1.2 evaluating how model1 and model2 compare on AIC, BIC, MSE, and ANOVA metrics
+AICscores <- rbind(AIC(model1),AIC(model2),AIC(model3),AIC(model4),AIC(model5)) 
+
+# BIC: which model predicts the simplest
+BICscores <- rbind(BIC(model1),BIC(model2),BIC(model3),BIC(model4),BIC(model5)) 
+
+# mean squares 
+MSEscores <- rbind(mean(model1$residuals)^2, mean(model2$residuals)^2,mean(model3$residuals)^2, mean(model4$residuals)^2, mean(model5$residuals)^2)
+
+# 1.3 making a table that compares model 1 and model 2
+score_eval <- cbind(AICscores,BICscores,MSEscores)
+rownames(score_eval) <- c("model1", "model2","model3","model4","model5")
+colnames(score_eval) <- c("AIC", "BIC", "MSE")
+score_eval
+
+anova(model1,model2)
+```
+
+## Part 3: Checking Assumptions of the Regression Model
+### Assumption 1: No Multicollinearity - Pearson Correlation Matrix for Numerical Data
+```{r}
+# since we are using pearson correlation, categorical dummies must be removed
+
+
+
+
+# plotting the correlation plot
+
+melted_corr_matrix_numerical_rq <- melt(correlation_matrix_numerical_rq)
+
+ggplot(data = melted_corr_matrix_numerical_rq, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), space = "Lab", 
+                       name="Correlation") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  labs(x = "", y = "") + 
+  geom_text(aes(Var1, Var2, label = round(value, 2)), color = "black", size = 2) +
+  theme(axis.text=element_text(size=10))
+
+
+```
+
+What can be observed here is that there is very little multicollinearity, which 
+
+### Assumption 2: Linearity Between Independent Variables and Dependent Variable
+```{r}
+
+# viz_years_employed <- ggplot(df_rq_final, aes(x = years_employed, y = ))
+```
+### Assumption 3: Exogeniety
+```{r}
+```
+### Assumption 4: Homoskedasticity
+```{r}
+```
+### Assumption 5: Normally Distributed Errors
+```{r}
+```
+
+
+## Part 4: Should we reject the null hypothesis?
+```{r}
+```
+## Part 5: Overall Conclusion
