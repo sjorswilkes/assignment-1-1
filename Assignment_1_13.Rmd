@@ -1,0 +1,806 @@
+---
+title: "Fundamentals of R: Assignment 1"
+author: "Marisca Westerhof (0706116), Matias Edelstein (1296337), Sjors Wilkes (6377130)"
+date: "8/12/2025"
+output: html_document
+---
+
+## Introduction
+
+As a cornerstone of our financial systems, the ability to receive a loan is essential to the livelihood of many families, entrepreneurial ventures, and big business alike. However, to minimize the chance of default creditors establish stringent criteria for loan approval; each case is evaluated depending on multiple factors. Since most individuals in their lives are likely to loan money, we find this topic to be highly relevant. Hence, our research aims to answer the question: to what extent do years employed, current debt, delinquencies last two years, loan intent, and occupation status influence loan amount in the US and Canada?
+
+Our dataset was retrieved from <https://www.kaggle.com/datasets/parthpatel2130/realistic-loan-approval-dataset-us-and-canada?resource=download>
+
+## Part 0: Coming up with the RQ
+
+### Step 0.0: Preliminary Setting Up
+
+```{r 0.0, message=FALSE, warning=FALSE, error=TRUE}
+library(tidyverse)
+library(plotly)
+library(gridExtra)
+library(corrplot)
+library(ggplot2)
+library(reshape2)
+library(modelr)
+library(car)
+library(kableExtra)
+
+# preliminary observation of the data to see which how many variables there are and their respective data types
+df <- read.csv("Loan_approval_data_2025.csv")
+head(df)
+```
+
+### Step 0.1: Pre-processing
+
+```{r 0.1}
+
+# checking for missing values, to see if data cleaning is necessary 
+check_missing_values <- is.na.data.frame(df)
+total_missing_values <- sum(check_missing_values) 
+
+print(total_missing_values)
+
+library(kableExtra)
+library(dplyr)
+
+check_missing_values <- is.na.data.frame(df)
+total_missing_values <- sum(check_missing_values) 
+
+print(total_missing_values) #since there are no missing values, we can move on!
+
+
+
+check_missing_values <- is.na.data.frame(df)
+total_missing_values <- sum(check_missing_values) 
+
+print(total_missing_values) #since there are no missing values, we can move on!
+
+#summary table
+glimpse(df)
+
+#occupation status into factor var
+df$occupation_status <- df$occupation_status %>% factor()
+levels(df$occupation_status)
+  
+#create object with only relevant variables
+mainvars_df <- select(df, c(years_employed, current_debt,
+                      loan_amount, delinquencies_last_2yrs))
+
+glimpse(mainvars_df)
+
+
+#summary statistics
+summary_stats <- tibble(
+  Variable = c("years_employed", "current_debt", "loan_amount", "delinquencies_last_2yrs"),
+  Min = c(min(mainvars_df$years_employed), 
+          min(mainvars_df$current_debt),
+          min(mainvars_df$loan_amount),
+          min(mainvars_df$delinquencies_last_2yrs)),
+  Mean = c(mean(mainvars_df$years_employed), 
+          mean(mainvars_df$current_debt),
+          mean(mainvars_df$loan_amount),
+           mean(mainvars_df$delinquencies_last_2yrs)), 
+  Max = c(max(mainvars_df$years_employed), 
+          max(mainvars_df$current_debt),
+          max(mainvars_df$loan_amount),
+          max(mainvars_df$delinquencies_last_2yrs)), 
+  IQR = c(IQR(mainvars_df$years_employed), 
+          IQR(mainvars_df$current_debt),
+          IQR(mainvars_df$loan_amount),
+          IQR(mainvars_df$delinquencies_last_2yrs)),
+  Description = c('The number of years employed by applicant',
+                  'The amount of debt by applicant ($)',
+                  'The amount on loan by applicant ($)', 
+                  'Loan Delinquencies in Last 2 Years'))
+
+#summary statistics table
+summary_stats_rounded <- summary_stats %>% 
+  mutate(across(c(Mean, Max, IQR), ~round(.,2)))
+
+kable(summary_stats_rounded, align = c('l','c','c','c','c','r')) %>% 
+  kable_styling(bootstrap_options = 'striped','hover')
+  
+
+```
+
+From our pre-processing step, we can see that there are no missing values. This means that we will not have to engage in further data cleaning methods.
+
+### Step 0.2: Variable Visualization
+
+In order to see if there are any extreme outliers that we must account for, we visualized our variables. For this, histograms are used for numerical variables, while bar charts for categorical variables.
+
+#### 0.2.1: Histograms for Numerical Variables
+
+```{r 0.2_numerical}
+par(mfrow = c(2, 5))
+
+
+# general theme histogram 
+theme_histo <- theme_minimal(base_size = 9) + 
+  theme(panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(),
+axis.title.x = element_text(size = 7),
+axis.title.y = element_blank(),
+axis.text.x = element_text(size = 7),
+axis.text.y = element_text(size = 7),
+plot.title = element_text(size = 9, face = "bold", hjust = 0.5),
+plot.margin = margin(2, 2, 2, 2, unit = "pt")
+)
+
+# age
+p1 <- ggplot(df) + geom_histogram(aes(x = age), binwidth = 1) +theme_histo 
+
+# filter out cases younger than 18
+# df <- df %>% filter(age > 17)
+
+# years_employed
+
+p2 <- ggplot(df) + geom_histogram(aes(x = years_employed), binwidth = 1)+theme_histo 
+
+# annual_income
+
+p3 <- ggplot(df) + geom_histogram(aes(x = annual_income), bins = 50)+ 
+  theme_histo 
+
+# credit_score
+
+p4 <- ggplot(df) + geom_histogram(aes(x = credit_score), bins = 50)+
+  theme_histo 
+# credit_history_years
+
+p5 <- ggplot(df) + geom_histogram(aes(x = credit_history_years), binwidth = 1)+
+  theme_histo 
+
+#savings_assets: in order to show the distribution clearly, we've transformed the x-axis to a logarithmic scale
+
+p6 <- ggplot(df) +
+  geom_histogram(aes(x = log10(savings_assets)), bins = 50) +
+  scale_x_continuous(
+    breaks = log10(c(10, 100, 1000, 10000, 100000)),
+    labels = c(10, 100, 1000, 10000, 100000)
+  ) +
+  theme_histo 
+
+#current_debt - 
+
+p7 <- ggplot(df) + geom_histogram(aes(x = current_debt), bins = 50) +
+  theme_histo 
+
+
+#delinquencies_last_2yrs 
+
+p8 <- ggplot(df) + geom_histogram(aes(x = delinquencies_last_2yrs), binwidth = 0.5) +theme_histo 
+
+#derogatory_marks
+
+p9 <- ggplot(df) + geom_histogram(aes(x = derogatory_marks), binwidth = 0.5) +theme_histo 
+
+#loan_amount 
+
+p10 <- ggplot(df) + geom_histogram(aes(x = loan_amount), bins=50) +theme_histo 
+ggplotly(p10)
+
+#interest_rate
+
+p11 <- ggplot(df) + geom_histogram(aes(x = interest_rate), bins = 50) +theme_histo 
+
+#debt_to_income_ratio
+
+p12 <- ggplot(df) + geom_histogram(aes(x = debt_to_income_ratio), binwidth = 0.01) +theme_histo 
+
+
+#loan_to_income_ratio 
+
+p13 <- ggplot(df) + geom_histogram(aes(x = loan_to_income_ratio), binwidth = 0.01) +theme_histo 
+
+#payment_to_income_ratio --
+
+p14 <- ggplot(df) + geom_histogram(aes(x = payment_to_income_ratio), binwidth = 0.01) +theme_histo 
+
+#arrangement numerical plots
+
+grid.arrange(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,p13,p14, ncol = 4)
+
+```
+
+An interesting observation we can make for our target variable, loan amount (which is how much an individual is loaned by a bank) has a frequency that is steadily decreasing as loans get bigger. However, there are spikes at the loan amount of 70000 dollars and 100000 dollars, which goes against the observed pattern. A less noticeable but yet interesting pattern is also the spike at 50000 dollar loans. This could be for numerous reasons, such as the fact that banks loan in fixed "packages", or that these are the maximum loans for various wealth groups. Either way, this is important to note for our regression, as this will have implications for the fit of the model.
+
+#### 0.2.1: Bar Plots for Categorical Data
+
+```{r 0.2_categorical}
+
+#general theme barplot
+theme_barplot <-  theme_bw(base_size = 9) + 
+  theme(panel.grid.major = element_blank(),
+panel.grid.minor = element_blank(),
+axis.title.x = element_text(size = 7),
+axis.title.y = element_blank(),
+axis.text.x = element_text(size = 7, angle = 45, hjust = 1),
+axis.text.y = element_text(size = 7),
+plot.title = element_text(size = 9, face = "bold", hjust = 0.5),
+plot.margin = margin(2, 2, 2, 2, unit = "pt"),
+aspect.ratio = 0.8
+)
+
+#occupation status
+
+df$occupation_status <- factor(df$occupation_status)
+
+b1 <- ggplot(df, aes(x = occupation_status)) +
+  geom_bar() + 
+  theme_barplot
+
+
+#product type
+df$product_type <- factor(df$product_type)
+
+b2 <- ggplot(df, aes(x = product_type)) +
+  geom_bar() +
+  theme_barplot
+
+
+#loan intent: change the categorical variable into a factor 
+df$loan_intent <- factor(df$loan_intent)
+
+b3 <- ggplot(df, aes(x = loan_intent)) +
+  geom_bar() + 
+  theme_barplot
+
+#defaults_on_file 
+
+b4 <- ggplot(df) +
+  geom_bar(aes(x = factor(defaults_on_file,
+                          levels = c(0,1),
+                          labels = c("no", "yes")))) + 
+  labs(x = "defaults_on_file") + 
+  theme_barplot
+
+#loan_status 
+
+b5 <- ggplot(df) +
+  geom_bar(aes(x = factor(loan_status,
+                          levels = c(0,1),
+                          labels = c("no", "yes")))) + labs(x = "loan status") + labs(x = "loan_status") +
+  theme_barplot
+
+
+grid.arrange(b1,b2,b3,b4, b5, ncol = 3)
+```
+
+### Step 0.3: Making a Pearson Correlation Matrix
+
+Inspiration for the correlation matrix visualization: <https://www.datacamp.com/tutorial/variance-inflation-factor>
+
+```{r 0.3}
+# cleaning the data for numerical variables as the pearson correlation matrix is only suited to numerical data
+
+df_numerical_data_only <- df %>%
+  select(-customer_id,-occupation_status,-product_type,-loan_intent,)
+
+correlation_matrix_numerical <- cor(df_numerical_data_only)
+
+# plotting the correlation plot to better understand how the variables correlate with loan_amount
+
+melted_corr_matrix_numerical <- melt(correlation_matrix_numerical)
+
+corr_plot <- ggplot(data = melted_corr_matrix_numerical, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), space = "Lab", 
+                       name="Correlation") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  labs(x = "", y = "") + 
+  geom_text(aes(Var1, Var2, label = round(value, 2)), color = "black", size = 2) +
+  theme(axis.text=element_text(size=10))
+
+corr_plot
+```
+
+## Part 1: Setting Our Hypotheses
+
+### Setting the Level of Significant, Null Hypothesis, and Alternative Hypothesis
+
+```{r 1.1}
+null_hypothesis <- "the chosen predictors have no effect on loan amount"
+alternative_hypothesis <- "the chosen predictors have an effect on loan amount"
+
+significance_level <- 0.05
+```
+
+The implication of this is that if a predictor showcases a P-Value greater than 0.05, it will not be statistically significant.
+
+## Part 2: Testing Various Models
+
+In order to determine which variables would have the highest potential as predictors of loan amount, we looked at the correlation matrix that we made in the previous section as our baseline for our model. From there, we added both numerical and categorical predictors to subsequent model iterations, based on if they were significant (\<0.05).
+
+## Step 2.0 Taking a sample out of our data, as to increase workability and clarity on visuals
+
+```{r}
+
+set.seed(123)
+df_sample <- df[sample(nrow(df), size = 1000), ]
+```
+
+### Step 2.1 Making linear regression models, using with high levels of correlation with loan amount as our starting point
+
+#### Model 1: Payment to Income Ratio
+
+We started out with testing payment_to_income_ratio as a predictor of loan amount, as it has a correlation of 0.66.
+
+```{r 2.1_model_1}
+
+# 1.1: building model1
+model1 <- lm(loan_amount ~ payment_to_income_ratio, data = df)
+summary(model1)
+
+# 1.2: making predictor model
+model1_pred <- df %>%
+  add_predictions(model1) %>% 
+  rename(predicted_loan_amount = pred)
+
+# 1.3: drawing a random sample of model1_pred to avoid overcrowding the visualization
+set.seed(123)
+model1_pred_sampled <- model1_pred %>% 
+  sample_n(500)
+
+# 1.4: plotting the regression with the sample
+model1_plot <- model1_pred_sampled %>%
+  ggplot(aes(loan_amount, predicted_loan_amount)) +
+  geom_point() +
+  geom_segment(aes(xend = loan_amount, yend = loan_amount), col = "red") +
+  geom_smooth(method = "lm", col = "blue")
+ggplotly(model1_plot)
+```
+
+Model 1 demonstrates that Payment to Income Ratio is a highly significant predictor for loan amount, with a coefficient of 111378.4. This means that for each 1 percentage point increase in the payment-to-income ratio, the predicted loan amount increases by \$111378.4. The r-squared value = is 0.4385, which signals a large effect. Still, as Model 1 is a simple linear regression, we can get more accurate results by using a multiple linear regression.
+
+#### Model 2: Payment to Income Ratio and Annual Income
+
+Model 2 builds on the first model, this time adding annual income as the second predictor of loan amount. The reason we opted for this as our second predictor is because it has a correlation of 0.51 with loan amount.
+
+```{r 2.1_model_2}
+# 1.1 building model 2
+model2 <- lm(loan_amount ~ payment_to_income_ratio + annual_income, data = df)
+summary(model2)
+```
+
+Comparing model 2 to model 1, we see a substantial improvement in model fit, as the R-squared increased to 0.8088. The overall F-test for model 2 is highly statistically significant, indicating that the predictors collectively explain a meaningful amount of variation in loan amount. The coefficient for payment to income ratio also increased compared to model 1, indicating a stronger predicted effect on loan amount. Annual_income is statistically significant as well, although its coefficient is relatively small (0.4918 per dollar). However, we anticipate potential multicollinearity issues because annual_income and payment_to_income_ratio are likely highly correlated, which could make the individual coefficients less reliable. This will be checked in the next section.
+
+#### Model 3,4,5: Adding More Predictors
+
+Additional predictors were added to the models to observe how the r-squared value and model fit changed. For each model, we checked the F-test to ensure that the predictors collectively had a statistically significant effect on loan amount.
+
+#### Model 3
+
+```{r 2.1_model_3}
+
+# model 3: adding product type, years employed, age, loan status, defaults on file, loan intent, and credit score as predictors
+model3 <- lm(loan_amount ~ payment_to_income_ratio + annual_income + product_type + years_employed + age + loan_status + defaults_on_file + loan_intent + credit_score, data = df)
+summary(model3)
+```
+
+In Model 3, we can see that model fit has only slightly increased to R-squared = 0.8117. The coefficient for payment-to-income ratio decreased slightly, meaning that a 1 percentage point increase in the ratio is associated with an increase in loan amount of approximately 124,000 dollars. Conversely, annual income decreased slightly, meaning that for each additional dollar of annual income, the loan amount increases by about 0.48 dollars.
+
+Product type was found to be a significant predictor. Interestingly, if your product type is a Line of Credit, this decreases your loan amount by approximately 1,864 dollars. However, if your product type is a Personal Loan, the loan amount increases by about 689 dollars.
+
+Age and loan status were also found to be highly significant. Years employed, defaults on file, and credit score were significant at the 0.01 level, which is still below our assigned significance threshold. Interestingly, loan intent does not have an impact on the loan amount that is granted, which means that it will be removed as a predictor in model 4.
+
+#### Model 4
+
+```{r 2.1_model_4}
+
+# model 4: adding derogatory marks, delinquencies last 2yrs, debt to income ratio, loan to income_ratio, interest rate and occupation status onto model3;
+# removing loan intent as it was not seen to be significant in the previous model
+
+model4 <- lm(loan_amount ~ payment_to_income_ratio + annual_income + product_type + years_employed + age + loan_status + defaults_on_file + credit_score + derogatory_marks + delinquencies_last_2yrs + debt_to_income_ratio + loan_to_income_ratio + interest_rate + occupation_status, data = df)
+summary(model4)
+```
+
+In Model 4, the overall model fit shows only a very slight increase compared to Model 3, with r-squared = 0.8119. Notably, the coefficient for payment-to-income ratio is very small and no longer statistically significant, suggesting that once similar income-related predictors such as debt-to-income ratio and loan-to-income ratio are included, the effect of payment-to-income ratio is largely absorbed by these new predictors. Hence, it will not be included in Model 5.
+
+Product type continues to influence loan amount, with a Line of Credit reducing the loan by approximately 1,929 dollars and a Personal Loan showing a smaller, marginal increase of about 624 dollars, which is only weakly significant.
+
+Among the newly added predictors, delinquencies in the last 2 years, debt-to-income ratio, and occupation status - particularly self-employed borrowers - are significant. For self-employed individuals, their loan amount increases by 732.8 dollars versus those who are not. However, loan-to-income ratio, interest rate, and credit score, are not significant in this model, so they will also not be included in Model 5. Years employed, age, and loan status remain important predictors, consistent with Model 3. The overall F-test remains highly significant.
+
+```{r 2.1_model_5}
+# model 5: building on model 4, removing payment to income ratio, loan to income ratio, interest rate, and credit score as these predictors were not seen to be significant
+
+model5 <- lm(loan_amount ~ annual_income + product_type + years_employed + age + loan_status + defaults_on_file + derogatory_marks + delinquencies_last_2yrs + debt_to_income_ratio + occupation_status, data = df)
+summary(model5)
+
+```
+
+In model 5, everything is seen to be significant! yay!everything but years employed got more significant. (say what the meaning is on loan_amount - if annual income increases by one )
+
+### Step 2.2 Comparing the Various Models
+
+To compare the
+
+```{r AIC_BIC_MSE_scores}
+# anova to compare the 
+anova(model1,model2,model3,model4,model5)
+
+# 1.2 evaluating how model1 and model2 compare on AIC, BIC, MSE, and ANOVA metrics
+AICscores <- rbind(AIC(model1),AIC(model2),AIC(model3),AIC(model4),AIC(model5)) 
+
+# BIC: which model predicts the simplest
+BICscores <- rbind(BIC(model1),BIC(model2),BIC(model3),BIC(model4),BIC(model5)) 
+
+# mean squares 
+MSEscores <- rbind(mean(model1$residuals)^2, mean(model2$residuals)^2,mean(model3$residuals)^2, mean(model4$residuals)^2, mean(model5$residuals)^2)
+
+# 1.3 making a table that compares model 1 and model 2
+score_eval <- cbind(AICscores,BICscores,MSEscores)
+rownames(score_eval) <- c("model1", "model2","model3","model4","model5")
+colnames(score_eval) <- c("AIC", "BIC", "MSE")
+score_eval
+```
+
+Based on the comparison of the five models using AIC, BIC, and MSE, Model 4 emerges as the best overall choice. It has the lowest AIC (1,075,418) and BIC (1,075,577), indicating that it achieves the best balance between model fit and complexity. While Model 5 has the smallest MSE, its AIC (1133057) and BIC (1133180) are the highest of the 5 models- even higher than the simple linear regression, suggesting that it is likely overfitting the data.
+
+While Model 4 did not have one of the lowest MSE's, all of the models had extremely low MSE values. The MSE of Model 4 is 4.62 × 10⁻²⁵, showing that it predicts the outcome very accurately while maintaining generalizability. Models 1 and 2 are clearly inferior, with much higher AIC and BIC values, and Model 3 is slightly behind Model 3 in both information criteria. Overall, Model 4 provides the optimal combination of predictive accuracy and simplicity, making it the preferred model for this dataset.
+
+This is probably due to the fact that Model 4 has the most predictors present compared to all of the models. However, as we saw that some predictors were not considered to be significant at the 5% level. Since our focus is on the overall significance and explanatory power of the model rather than on the significance of individual predictors, it is acceptable to retain variables that are not statistically significant on their own. Furthermore, because both AIC and BIC penalize the loss of model fit more than they reward the reduction in complexity, this indicates that the removed variables still contributed to explaining variation in the response. To address this issue, we will use the assumptions in the next section as a means of feature selection to test which predictors should be dropped for our final model.
+
+## Part 3: Checking Assumptions of the Regression Model
+
+### Assumption 1: No Multicollinearity - Pearson Correlation Matrix for Numerical Data
+
+```{r 3.1}
+
+# to see which predictors have high multicollinearity, vif scores are checked to see if they are less than 10
+model4_vif <- model4 %>%
+  vif()
+print(model4_vif)
+
+# bringing back the correlation matrix to see which associations are specifically causing high multicollinearity
+corr_plot
+
+# see what the vif scores would look like without loan to income ratio
+model4_v1 <- lm(loan_amount ~ payment_to_income_ratio + annual_income + product_type + years_employed + age + loan_status + defaults_on_file + credit_score + derogatory_marks + delinquencies_last_2yrs + debt_to_income_ratio + interest_rate + occupation_status, data = df)
+
+model4_v1 %>% 
+  plot(1)
+
+model4_v1_vif <- model4_v1 %>%
+  vif()
+print(model4_v1_vif)
+```
+
+What can be observed here is that there is very little multicollinearity, overall with one clear exception - payment to income ratio and loan to income ratio, which is
+
+-   if you look at the correlation plot, you can see that they have a correlation of 1, which is a virtually perfect relationship. this indicates that one needs to be dropped, so we got rid of loan to income ratio
+
+-   as you can see, there is now no VIF value greater than 10, so model 4 now meets the assumption of multicollinearity. interest_rate still has moderate multicollinearity, so
+
+### Assumption 2: Linearity Between Independent Variables and Dependent Variable
+
+```{r 3.2}
+
+make_plot <- function(var) {
+  ggplot(df_sample, #or: model1_pred_sampled
+         aes(x = .data[[var]], y = loan_amount)) +
+    geom_point() +
+    geom_smooth(se = FALSE) +
+    ggtitle(paste("loan amount vs", var)) +
+    xlab(var) +
+    ylab("loan amount")
+}
+
+# lijst van variabelen die je wilt plotten
+vars <- c("payment_to_income_ratio",
+          "annual_income",
+          "years_employed",
+          "age",
+          "credit_score"
+          )
+
+# plots genereren
+plots <- lapply(vars, make_plot)
+
+
+# "payment_to_income_ratio"
+plots[[1]]
+#"annual_income",
+plots[[2]]
+#"years_employed"
+plots[[3]]
+# "age", 
+plots[[4]]
+#"credit_score"
+plots[[5]]
+
+# viz_years_employed <- ggplot(df_rq_final, aes(x = years_employed, y = ))
+```
+
+### Assumption 3: Exogeneity and Endogeneity
+
+Exogeneity questions whether the independent variables are correlated with the errors. This assumption is the most difficult to prove strictly because exhaustive data would be required.
+
+One way to evaluate this is to approach it using theoretical justification. We can ask, "could the error term (unmeasured variables) cause changes in X?"
+
+Our best model currently uses the following independent variables:
+
+```{r}
+# | echo: false
+
+model4_vars <- matrix(
+  c('payment_to_income_ratio', 'annual_income', 'product_type', 'years_employed', 'age', 'loan_status', 'defaults_on_file', 'credit_score', 'derogatory_marks', 'delinquencies_last_2yrs', 'debt_to_income_ratio', 'loan_to_income_ratio', 'interest_rate', 'occupation_status'),
+  ncol = 2,
+  byrow = TRUE)
+
+kable(model4_vars) %>% 
+  kable_styling(bootstrap_options = 'striped')
+
+```
+
+#### Education Level and Field of Study
+
+Education is not captured by our model but may be associated with several of the independent variables, such as: occupation status, years employed, credit score, and annual income. For example, we would assume that a highly educated individual would have a higher income and more likely to be employed.
+
+#### Health, Major Life Events and Delinquencies
+
+Health crises and other major life events, such as being in an area geographically prone to natural disasters, likely have a relationship with loan delinquency in the last 2 years. However, we do not include these factors in our model. In future iterations, including health data and geography would be helpful in improving our model.
+
+#### Feedback Effects
+
+The biggest challenge to exogeneity are the feedback effects. The data represents these individuals in a static moment in time when in fact there is a story. An individual may have had a loan denied which in turn influenced their credit score. Or, a bank may have restricted credit access which then influenced another one of the variables above, such as delinquency.
+
+For the exogeneity assumption to be held true, we are assuming that our independent variables are determined independently from the loan amount given. However, there *is* a relationship between variables like delinquency, occupation status, etc. and the amount of the loan provided.
+
+As a result, our coefficients may be biased because "loan amount" is already an decision that is accumulated using our independent variables. As such, our exogeneity problem is also a problem of endogeneity.
+
+### Assumption 4: Homoscedasticity
+
+Homoscedacity is the assumption that the errors are consistent over all of the variables. The way to visualize this is to plot the residuals (our errors) against our fitted values (our predictions).
+
+The plot below reveals that our predictions are generally accurate at lower loan amounts (\<30,000) but are increasingly inaccurate at higher loan amounts (\>30,000). The downward slope and negative residuals shows that the model is consistently overpredicting loan amounts at higher loan amounts. This suggests that the model has heteroskedacity.
+
+This heteroskedacity is also worsened by the distribution of the loan_amount variable. The histogram below shows how it is skewed significantly towards lower loan_amounts. Although this still means the model is overpredicting, we know it is being skewed by the lack of data on higher loan amounts.
+
+Another consideration is that the model is missing a variable that influences higher loan amounts differently than lower amounts. This would be a good avenue to improve future models.
+
+```{r 3.4}
+
+  model4_v1  %>%
+  plot(1)
+
+    
+```
+
+```{r}
+
+p10 <- ggplot(df) + geom_histogram(aes(x = loan_amount), bins=50) +theme_histo 
+ggplotly(p10)
+```
+
+### Assumption 5: Normally Distributed Errors
+
+The Q-Q plot reveals that the errors are correctly distributed around the median of the data but fail to be normally distributed around the tails. In particular, the lower tail's errors are significant negatively skewed.
+
+This result confirms the heteroscedacity found in the previous test. It may also suggest that we are missing important variables or that a different model (e.g. logarithmic) may be a better choice.
+
+```{r 3.5}
+
+model4_v1 %>% 
+  plot(2)
+
+```
+
+### Assumption 6: Independent Errors
+
+This assumption states that errors are uncorrelated with each other. For example, if there is 'clustering' in the data. This means that the errors may relationships to one another. Similar to exogeneity, this assumption requires a theoretical justification.
+
+One example of clustering might occur if the loan data is coming from different branches of the same bank. Or, if there are multiple loan applications from the same individual. Or lastly, if there are demographic or geographical conditions that group loans together.
+
+Since this is not considered in our model, we cannot guarantee that this model satisfies the independent error assumption.
+
+## Part 4: Influential observations
+
+for this part we are using a sample of the data set, as it will be easier to see in visualizations, . the point of this part is to show how alleviating extreme outliers can improve the model. since the original data frame is so big, the effect of removing a few outliers won't be visible, hence why the sample is appropriate
+
+### 4.1: Outliers
+
+```{r 4.1}
+# using a sample sample index to avoid overcrowding of visualization
+
+sample_index <- sample(1:nrow(df), 5000)
+
+# finding the residuals for the sample
+model4_resid <- rstudent(model4_v1)
+model4_resid_sample <- model4_resid[sample_index]
+
+plot(model4_resid_sample)
+
+# checking what is the most extreme outlier in this sample 
+extreme_tupple_in_sample1 <- which.max(abs(model4_resid_sample))
+extreme_tupple_in_sample1
+```
+
+with this information, we will see if this outlier is also the most extreme with the other tests, that way we can see if
+
+### 4.2 High Leverage Observations
+
+```{r 4.2}
+
+# finding the residuals for the same sample as above
+model4_hat <- hatvalues(model4_v1)
+model4_hat_sample <- model4_hat[sample_index]
+
+# plotting
+plot(model4_hat_sample)
+
+# checking what is the most extreme outlier in this sample 
+extreme_tupple_in_sample2 <- which.max(abs(model4_hat_sample))
+extreme_tupple_in_sample2
+```
+
+### 4.3 Influences on the Model
+
+```{r 4.3}
+
+# testing cook's distance 
+
+# finding the residuals for the same sample as above
+model4_cook <- cooks.distance(model4_v1)
+model4_cook_sample <- model4_cook[sample_index]
+
+# plotting
+plot(model4_cook_sample)
+
+# checking what is the most extreme outlier in this sample 
+extreme_tupple_in_sample3 <- which.max(abs(model4_cook_sample))
+extreme_tupple_in_sample3
+
+# testing df_beta's
+
+# finding the residuals for the same sample as above
+model4_beta <- dfbeta(model4_v1)
+model4_beta_sample <- model4_beta[sample_index]
+
+# plotting
+plot(model4_beta_sample)
+
+# checking what is the most extreme outlier in this sample 
+extreme_tupple_in_sample4 <- which.max(abs(model4_beta_sample))
+extreme_tupple_in_sample4
+```
+
+4.3 reflection - cook produced the same score as 4.3
+
+## 4.4: What happens to the model when outliers are removed?
+
+```{r}
+df_sample <- df[sample_index, ]
+df2 <- df_sample[-c(extreme_tupple_in_sample1, extreme_tupple_in_sample2, extreme_tupple_in_sample3, extreme_tupple_in_sample4), ]
+
+model4_v1_sample <- lm(loan_amount ~ payment_to_income_ratio + annual_income + product_type + years_employed + age + loan_status + defaults_on_file + credit_score + derogatory_marks + delinquencies_last_2yrs + debt_to_income_ratio + interest_rate + occupation_status, data = df_sample)
+model4_v1_sample_no_outliers <- lm(loan_amount ~ payment_to_income_ratio + annual_income + product_type + years_employed + age + loan_status + defaults_on_file + credit_score + derogatory_marks + delinquencies_last_2yrs + debt_to_income_ratio + interest_rate + occupation_status, data = df2)
+
+summary(model4_v1_sample)
+summary(model4_v1_sample_no_outliers)
+```
+
+overall reflection: we managed to find the biggest outliers in the sample through these tests. we can see that just removing these three data points already improves the model by x. notably:
+
+however, within the sample there are still a lot of outliers- and even more in the data set as a whole. hence, as manually taking out outliers is extremely tedious and not statistically sound what might have to be done to alleviate the impact of outliers in the model as a whole is to log normalize. another thing that can be done is binning
+
+## Part 5: Model Interpretation
+
+```{r}
+# translating rows deleted in the sample to rows in the original df
+summary(model4_v1_sample)
+names(summary(model4_v1_sample_no_outliers))
+
+comparison <- tibble(
+  metric = c('r-squared', 'r-squared-adj', 'AIC', 'BIC', 'F-stat'),
+  with_outliers = c(
+    summary(model4_v1_sample)$r.squared,
+    summary(model4_v1_sample)$adj.r.sq,
+    AIC(model4_v1_sample),
+    BIC(model4_v1_sample),
+    summary(model4_v1_sample)$fstatistic[1]
+    ),
+  without_outliers = c(
+    summary(model4_v1_sample_no_outliers)$r.squared,
+    summary(model4_v1_sample_no_outliers)$adj.r.sq,
+    AIC(model4_v1_sample_no_outliers),
+    BIC(model4_v1_sample_no_outliers),
+    summary(model4_v1_sample_no_outliers)$fstatistic[1]
+    )
+  )
+    
+comparison %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = 'striped')
+)
+
+```
+
+### comparison of model4 first version and what model 4 looked like after assumptions + elimination of extreme outliers
+
+## Part 6: Overall Conclusion
+
+# Outline for Conclusion
+
+**Part 6: Overall Conclusion**
+
+**6.1 Summary of Research Question and Findings**
+
+-   Restate the original research question about predictors of loan amount
+
+    Our re
+
+-   Highlight that Model 4 emerged as the optimal balance between accuracy and complexity
+
+-   
+
+-   Summarize key significant predictors: annual income, product type, years employed, age, loan status, defaults on file, derogatory marks, delinquencies in last 2 years, debt-to-income ratio, and occupation status
+
+-   
+
+**6.2 Key Insights from the Data**
+
+-   
+
+-   Discuss the practical implications of major predictors (e.g., what delinquencies and defaults reveal about lending decisions)
+
+-   
+
+-   Address the counterintuitive finding that loan intent was not significant
+
+-   
+
+-   Note the distinct loan amount "packages" (spikes at 50,000, 70,000, 100,000) suggesting standardized lending practices
+
+-   
+
+**6.3 Violations of Regression Assumptions and Their Impact**
+
+-   
+
+-   Acknowledge the heteroscedasticity issue and its effect on model reliability at higher loan amounts
+
+-   
+
+-   Address the exogeneity/endogeneity problem regarding feedback effects in lending decisions
+
+-   
+
+-   Discuss how non-normal error distribution at the tails affects inference
+
+-   
+
+-   Note the potential for unmeasured clustering in the data
+
+-   
+
+**6.4 Limitations and Future Research Directions**
+
+-   
+
+-   Suggest incorporating education level and field of study
+
+-   
+
+-   Recommend inclusion of health/life event data and geographic factors
+
+-   
+
+-   Propose alternative modeling approaches (logarithmic transformation, binning) to address heteroscedasticity
+
+-   
+
+-   Discuss the value of temporal data to capture causal relationships rather than static snapshots
+
+-   
+
+**6.5 Final Statement**
+
+-   
+
+-   Affirm that the model provides useful predictive power for loan amount while acknowledging its limitations for causal inference
+
+-   
